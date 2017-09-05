@@ -1,3 +1,4 @@
+/****************************************************************************
 MIT License
 
 Copyright (c) 2017 gdsports625@gmail.com
@@ -19,3 +20,23 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+****************************************************************************/
+const char INDEX_HTML[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name = "viewport" content = "width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0">
+<script src="sketch.js"></script>
+<title>BNO055 9DOF Fusion IMU Configuration</title>
+</head>
+<body onload="javascript:start();">
+<h3>BNO055 9DOF Fusion IMU Configuration</h3>
+<button id="webSockStatus" type="button" onclick="window.location.reload();">Connect</button>
+<p>OSC Remote IP: %s
+<p>OSC Remote Port: %d
+<p>Device: %s
+<p>Sample Rate: %d
+</body>
+</html>
+)=====";
