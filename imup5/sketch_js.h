@@ -1,7 +1,7 @@
 /****************************************************************************
 MIT License
 
-Copyright (c) 2017 gdsports625@gmail.com
+Copyright (c) 2017-2018 gdsports625@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@ function enableTouch(objname) {
 
 var websock;
 var WebSockOpen=0;  //0=close,1=opening,2=open
-var Euler_yaw=0.0, Euler_roll=0.0, Euler_pitch=0.0;
+var Euler = {heading: 0.0, pitch: 0.0, roll: 0.0};
 
 function start() {
   websock = new WebSocket('ws://' + window.location.hostname + ':81/');
@@ -63,10 +63,7 @@ function start() {
   websock.onerror = function(evt) { console.log(evt); };
   websock.onmessage = function(evt) {
     //console.log('websock message ' + evt.data);
-    var euler_angles = JSON.parse(evt.data);
-    Euler_yaw   = -euler_angles.x;
-    Euler_roll  = euler_angles.y;
-    Euler_pitch = euler_angles.z;
+    Euler = JSON.parse(evt.data);
   };
 
   var allButtons = [
@@ -121,9 +118,11 @@ function draw() {
   push();
   // draw main body in red
   fill(255, 0, 0);
-  rotateZ(radians(Euler_roll));
-  rotateX(radians(-Euler_pitch));
-  rotateY(radians(Euler_yaw));
+
+  rotateY(radians(-Euler.heading));
+  rotateX(radians(Euler.pitch));
+  rotateZ(radians(-Euler.roll));
+
   box(10, 10, 200);
 
   // draw wings in green
