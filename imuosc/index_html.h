@@ -1,7 +1,7 @@
 /****************************************************************************
 MIT License
 
-Copyright (c) 2017 gdsports625@gmail.com
+Copyright (c) 2017-2018 gdsports625@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@ const char INDEX_HTML[] PROGMEM = R"=====(
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name = "viewport" content = "width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.14/p5.min.js"></script>
 <script src="sketch.js"></script>
 <title>BNO055 9DOF Fusion IMU Configuration</title>
 </head>

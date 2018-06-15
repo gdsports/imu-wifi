@@ -1,7 +1,7 @@
 /****************************************************************************
 MIT License
 
-Copyright (c) 2017 gdsports625@gmail.com
+Copyright (c) 2017-2018 gdsports625@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,15 +22,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ****************************************************************************/
 
-/* This sketch reads quaternion data from the BNO055 and sends 
-   Open Sound Control messages.
+/* This sketch reads quaternion data from the BNO055 and sends
+   Open Sound Control messages. In addition, it also supports web browers
+   using p5.js. This is a superset of the imup5 demo program.
 
-   Connections to ESP8266
+   Connections BNO055 breakout to Huzzah ESP8266
    ===========
    Connect SCL to GPIO#5
    Connect SDA to GPIO#4
-   Connect VDD to 3.3V DC
-   Connect GROUND to common ground
+   Connect Vin to 3V
+   Connect GND to GND
+   Connect RST to RST
 
 */
 
@@ -82,7 +84,7 @@ bool Connected = false;
 
 elapsedMillis imuElapsed;
 
-const char IMU_JSON[] PROGMEM = R"=====({"x":%f,"y":%f,"z":%f})=====";
+const char IMU_JSON[] PROGMEM = R"=====({"heading":%f,"pitch":%f,"roll":%f})=====";
 
 void handleRoot() {
   char html[1024];
@@ -170,6 +172,21 @@ void setup(void)
   Serial.begin(115200);
   Serial.println(F("\nOrientation Sensor Raw Data Test")); Serial.println();
 
+  //WiFiManager
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+  //reset saved settings
+  //wifiManager.resetSettings();
+
+  //fetches ssid and pass from eeprom and tries to connect
+  //if it does not connect it starts an access point with the specified name
+  //and goes into a blocking loop awaiting configuration
+  wifiManager.autoConnect(DEVICE_NAME);
+
+  Serial.print(F("WiFi connected! IP address: "));
+  Serial.println(WiFi.localIP());
+  Connected = true;
+
   /* Initialise the sensor */
   if (!bno.begin())
   {
@@ -187,7 +204,7 @@ void setup(void)
   }
 
   webserver_setup();
-  
+
   bno.setExtCrystalUse(true);
   /* Display the current temperature */
   delay(1000);
@@ -202,31 +219,33 @@ void imu_loop()
 {
   static uint8_t last_cal = 0xC0;
 
-  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  // Thanks to gammaburst @ forums.adafruit.com for this conversion.
+  imu::Quaternion q = bno.getQuat();
+  imu::Quaternion qorig = q;
+  // flip BNO/Adafruit quaternion axes to aerospace: x forward, y right, z down
+  float temp = q.x();  q.x() = q.y();  q.y() = temp;  q.z() = -q.z();
+  q.normalize();
+
+  // convert aerospace quaternion to aerospace Euler, because BNO055 Euler data is broken
+  float heading = 180/M_PI * atan2(q.x()*q.y() + q.w()*q.z(), 0.5 - q.y()*q.y() - q.z()*q.z());
+  float pitch   = 180/M_PI * asin(-2.0 * (q.x()*q.z() - q.w()*q.y()));
+  float roll    = 180/M_PI * atan2(q.w()*q.x() + q.y()*q.z(), 0.5 - q.x()*q.x() - q.y()*q.y());
+  heading = heading < 0 ? heading+360 : heading;
+
 #if DEBUG_IMU
-  /* Display the floating point data */
-  Serial.print(F("X: "));
-  Serial.print(euler.x());
-  Serial.print(F(" Y: "));
-  Serial.print(euler.y());
-  Serial.print(F(" Z: "));
-  Serial.print(euler.z());
-  Serial.print(F("\t\t"));
+  Serial.print(F("HeadingPitchRoll: "));
+  Serial.print(heading);  // heading, nose-right is positive
+  Serial.print(F(" "));
+  Serial.print(pitch);    // pitch, nose-up is positive
+  Serial.print(F(" "));
+  Serial.print(roll);     // roll, leftwing-up is positive
+  Serial.println(F(""));
 #endif
 
-  // Quaternion data
-  imu::Quaternion quat = bno.getQuat();
-#if DEBUG_IMU
-  Serial.print(F("qW: "));
-  Serial.print(quat.w(), 4);
-  Serial.print(F(" qX: "));
-  Serial.print(quat.y(), 4);
-  Serial.print(F(" qY: "));
-  Serial.print(quat.x(), 4);
-  Serial.print(F(" qZ: "));
-  Serial.print(quat.z(), 4);
-  Serial.print(F("\t\t"));
-#endif
+  // Send JSON over websocket
+  char payload[64];
+  snprintf_P(payload, sizeof(payload), IMU_JSON, heading, pitch, roll);
+  webSocket.broadcastTXT(payload, strlen(payload));
 
   /* Display calibration status for each sensor. */
   uint8_t system, gyro, accel, mag = 0;
@@ -245,45 +264,37 @@ void imu_loop()
     last_cal = now_cal;
   }
 
-  if (system > 0) {
-    // Send OSC message
-    char tag[64];
-    snprintf(tag, sizeof(tag), "/%s/imu", DEVICE_NAME);
-    OSCMessage msg(tag);
-    msg.add((float)euler.x());
-    msg.add((float)euler.y());
-    msg.add((float)euler.z());
+  // Send OSC message
+  char tag[64];
+  snprintf(tag, sizeof(tag), "/%s/imu", DEVICE_NAME);
+  OSCMessage msg(tag);
+  msg.add((float)heading);
+  msg.add((float)pitch);
+  msg.add((float)roll);
 
-    msg.add((float)quat.w());
-    msg.add((float)quat.x());
-    msg.add((float)quat.y());
-    msg.add((float)quat.z());
+  msg.add((float)qorig.w());
+  msg.add((float)qorig.x());
+  msg.add((float)qorig.y());
+  msg.add((float)qorig.z());
 
-    msg.add((int32_t)system);
-    msg.add((int32_t)gyro);
-    msg.add((int32_t)accel);
-    msg.add((int32_t)mag);
+  msg.add((int32_t)system);
+  msg.add((int32_t)gyro);
+  msg.add((int32_t)accel);
+  msg.add((int32_t)mag);
 
-    Udp.beginPacket(outIp, outPort);
-    msg.send(Udp);
-    Udp.endPacket();
+  Udp.beginPacket(outIp, outPort);
+  msg.send(Udp);
+  Udp.endPacket();
 
-    msg.empty();
+  msg.empty();
 
-    if (!calib_found()) {
-      if (system == 3 && gyro == 3 && accel == 3 && mag == 3) {
-        calib_save();
-      }
+  if (!calib_found()) {
+    if (system == 3 && gyro == 3 && accel == 3 && mag == 3) {
+      calib_save();
     }
   }
 }
 
-/**************************************************************************/
-/*
-    Arduino loop function, called once 'setup' is complete (your own code
-    should go here)
-*/
-/**************************************************************************/
 void loop(void)
 {
   if (WiFi.status() == WL_CONNECTED) {
@@ -302,8 +313,6 @@ void loop(void)
     //WiFiManager
     //Local intialization. Once its business is done, there is no need to keep it around
     WiFiManager wifiManager;
-    //reset saved settings
-    //wifiManager.resetSettings();
 
     //fetches ssid and pass from eeprom and tries to connect
     //if it does not connect it starts an access point with the specified name
@@ -319,7 +328,7 @@ void loop(void)
   Webserver.handleClient();
 
   if (imuElapsed > BNO055_SAMPLERATE_DELAY_MS) {
-    imu_loop();
     imuElapsed = 0;
+    imu_loop();
   }
 }

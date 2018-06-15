@@ -1,7 +1,7 @@
 /****************************************************************************
 MIT License
 
-Copyright (c) 2017 gdsports625@gmail.com
+Copyright (c) 2017-2018 gdsports625@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@ function enableTouch(objname) {
 
 var websock;
 var WebSockOpen=0;  //0=close,1=opening,2=open
-var Euler_yaw=0.0, Euler_roll=0.0, Euler_pitch=0.0;
+var Euler = {heading: 0.0, pitch: 0.0, roll: 0.0};
 
 function start() {
   websock = new WebSocket('ws://' + window.location.hostname + ':81/');
@@ -63,10 +63,7 @@ function start() {
   websock.onerror = function(evt) { console.log(evt); };
   websock.onmessage = function(evt) {
     //console.log('websock message ' + evt.data);
-    var euler_angles = JSON.parse(evt.data);
-    Euler_yaw   = -euler_angles.x;
-    Euler_roll  = euler_angles.y;
-    Euler_pitch = euler_angles.z;
+    Euler = JSON.parse(evt.data);
   };
 
   var allButtons = [
@@ -109,5 +106,105 @@ function buttonup(e) {
       websock.send(e.id + '=0');
       break;
   }
+}
+
+function setup() {
+  createCanvas(300, 300, WEBGL);
+}
+
+function draw() {
+  background(64);
+
+  push();
+  // draw main body in red
+  fill(255, 0, 0);
+
+  rotateY(radians(-Euler.heading));
+  rotateX(radians(Euler.pitch));
+  rotateZ(radians(-Euler.roll));
+
+  box(10, 10, 200);
+
+  // draw wings in green
+  fill(0, 255, 0);
+  beginShape(TRIANGLES);
+  vertex(-100, 2, 30);
+  vertex(0, 2, -80);
+  vertex(100, 2, 30);  // wing top layer
+
+  vertex(-100, -2, 30);
+  vertex(0, -2, -80);
+  vertex(100, -2, 30);  // wing bottom layer
+  endShape();
+
+  // draw wing edges in slightly darker green
+  fill(0, 192, 0);
+  beginShape(TRIANGLES);
+  vertex(-100, 2, 30);  // No quads so use 2 triangles to cover wing edges
+  vertex(-100, -2, 30);
+  vertex(  0, 2, -80);
+
+  vertex(  0, 2, -80);
+  vertex(  0, -2, -80);
+  vertex(-100, -2, 30); // Left wing edge
+
+  vertex( 100, 2, 30);
+  vertex( 100, -2, 30);
+  vertex(  0, -2, -80);
+
+  vertex(  0, -2, -80);
+  vertex(  0, 2, -80);
+  vertex( 100, 2, 30);  // Right wing edge
+
+  vertex(-100, 2, 30);
+  vertex(-100, -2, 30);
+  vertex(100, -2, 30);
+
+  vertex(100, -2, 30);
+  vertex(100, 2, 30);
+  vertex(-100, 2, 30);  // Back wing edge
+  endShape();
+
+  // draw tail in green
+  fill(0, 255, 0);
+  beginShape(TRIANGLES);
+  vertex(-2, 0, 98);
+  vertex(-2, -30, 98);
+  vertex(-2, 0, 70);  // tail left layer
+
+  vertex( 2, 0, 98);
+  vertex( 2, -30, 98);
+  vertex( 2, 0, 70);  // tail right layer
+  endShape();
+
+  // draw tail edges in slightly darker green
+  fill(0, 192, 0);
+  beginShape(TRIANGLES);
+  vertex(-2, 0, 98);
+  vertex(2, 0, 98);
+  vertex(2, -30, 98);
+
+  vertex(2, -30, 98);
+  vertex(-2, -30, 98);
+  vertex(-2, 0, 98);  // tail back edge
+
+  vertex(-2, 0, 98);
+  vertex(2, 0, 98);
+  vertex(2, 0, 70);
+
+  vertex(2, 0, 70);
+  vertex(-2, 0, 70);
+  vertex(-2, 0, 98);  // tail front edge
+
+  vertex(-2, -30, 98);
+  vertex(2, -30, 98);
+  vertex(2, 0, 70);
+
+  vertex(2, 0, 70);
+  vertex(-2, 0, 70);
+  vertex(-2, -30, 98);
+  endShape();
+
+  pop();
 }
 )=====";
